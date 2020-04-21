@@ -9,18 +9,25 @@ mkdir -p ./tmpcfg
 
 echo "#==> Create Chart Custom Values - Consul"
 tee ./tmpcfg/helm-consul-values.yaml <<EOF
+# Choose an optional name for the datacenter
 global:
   datacenter: dc1
 
 client:
   enabled: true
 
+# Use only one Consul server for local development
 server:
-  replicas: 1
-  bootstrapExpect: 1
+  replicas: 3 # 1 for dev. 3 is default
+  bootstrapExpect: 3 # Should <= replicas count
   disruptionBudget:
     maxUnavailable: 0
 
+# Enable Connect for secure communication between nodes
+connectInject:
+  enabled: true
+
+# Enable the Consul Web UI. Optionally enable NodePort
 ui:
   # service:
   #   type: 'NodePort'
@@ -28,15 +35,34 @@ ui:
 EOF
 
 echo "#==> Install Helm Chart - Consul"
-helm install -f ./tmpcfg/helm-consul-values.yaml dc1 ./consul-helm || true
+helm install -f ./tmpcfg/helm-consul-values.yaml dc1 \
+  https://github.com/hashicorp/consul-helm/archive/master.tar.gz || true
 
-read
+echo
+echo "#--- Complete"
+
+read -p "Press enter to continue"
+
+echo "#==> Create Chart Custom Values - Vault"
+tee ./tmpcfg/helm-vault-values.yaml <<EOF
+server:
+  image:
+    repository: "hashicorp/vault-enterprise"
+    tag: "1.4.0_ent"
+  ha:
+    enabled: true
+    replicas: 3
+EOF
 
 echo "#==> Install Helm Chart - Vault"
-helm install vault \
-  --set server.dev.enabled=true \
+helm install -f ./tmpcfg/helm-vault-values.yaml vault \
   https://github.com/hashicorp/vault-helm/archive/master.tar.gz || true
 
+echo "
+helm upgrade -f ./tmpcfg/helm-vault-values.yaml vault \
+  --set server.dev.enabled=true \
+  https://github.com/hashicorp/vault-helm/archive/master.tar.gz
+"
 
 echo "#==> Create Ingress - Vault"
 tee ./tmpcfg/vault-ingress.yaml <<EOF
@@ -55,7 +81,7 @@ spec:
           servicePort: 8200
 EOF
 
-read
+read -p "Press enter to continue"
 
 echo "#==> Apply Ingress - Vault"
 k apply -f ./tmpcfg/vault-ingress.yaml
@@ -79,3 +105,6 @@ spec:
 EOF
 
 k apply -f ./tmpcfg/consul-ingress.yaml
+
+
+read -p "Press enter to end"
