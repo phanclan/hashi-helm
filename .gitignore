@@ -6,4 +6,5 @@ terraform.tfvars
 values.dev.yaml
 vaul-helm-dev-creds.json
 
+# tmpcfg contains dynamically created items.
 tmpcfg/

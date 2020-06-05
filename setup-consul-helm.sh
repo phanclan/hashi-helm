@@ -49,13 +49,14 @@ server:
   image:
     repository: "hashicorp/vault-enterprise"
     tag: "1.4.0_ent"
-  ha:
-    enabled: true
-    replicas: 3
+  # ha:
+  #   enabled: true
+  #   replicas: 3
 EOF
 
 echo "#==> Install Helm Chart - Vault"
-helm install -f ./tmpcfg/helm-vault-values.yaml vault \
+helm install --set server.dev.enabled=true \
+  -f ./tmpcfg/helm-vault-values.yaml vault \
   https://github.com/hashicorp/vault-helm/archive/master.tar.gz || true
 
 echo "
@@ -86,6 +87,11 @@ read -p "Press enter to continue"
 echo "#==> Apply Ingress - Vault"
 k apply -f ./tmpcfg/vault-ingress.yaml
 
+k describe ing vault-ingress
+
+echo "export VAULT_ADDR=http://vault.hashi.local"
+
+read -p "Press enter to continue"
 
 echo #==> Create Ingress - Consul
 tee ./tmpcfg/consul-ingress.yaml <<EOF
