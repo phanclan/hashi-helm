@@ -1,38 +1,34 @@
 #!/bin/bash
 set -ex
 
-echo "#==> Create three VMs."
-multipass launch --name k3s-master --cpus 1 --mem 2G --disk 3G || true
+echo "#==> Create four VMs."
+multipass launch --name k3s-master --cpus 1 --mem 1536M --disk 3G || true
 multipass launch --name k3s-worker1 --cpus 1 --mem 1G --disk 3G || true
 multipass launch --name k3s-worker2 --cpus 1 --mem 1G --disk 3G || true
+multipass launch --name k3s-worker3 --cpus 1 --mem 1280M --disk 3G || true
 
-echo "# ==> Deploy k3s on the master node"
+echo "#==> Deploy k3s on the master node"
 multipass exec k3s-master -- /bin/bash -c \
   "curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -"
-echo "# ==> Complete"
+echo "#==> Complete"
 
 sleep 5
 
-echo "# ==> Get the IP of the master node"
+echo "#==> Get the IP of the master node"
 K3S_NODEIP_MASTER="https://$(multipass info k3s-master | \
   grep "IPv4" | awk -F' ' '{print $2}'):6443"
-
 echo $K3S_NODEIP_MASTER
 
-echo "# ==> Get the TOKEN from the master node"
+echo "#==> Get the TOKEN from the master node"
 K3S_TOKEN="$(multipass exec k3s-master -- /bin/bash -c \
   "sudo cat /var/lib/rancher/k3s/server/node-token")"
-
 echo $K3S_TOKEN
 
-echo "# ==> Deploy k3s on the worker1 node - 3 min"
-multipass exec k3s-worker1 -- /bin/bash -c \
+echo "#==> Deploy k3s on the worker nodes - 3 min"
+for i in 1 2 3; do
+multipass exec k3s-worker${i} -- /bin/bash -c \
   "curl -sfL https://get.k3s.io | K3S_TOKEN=${K3S_TOKEN} K3S_URL=${K3S_NODEIP_MASTER} sh -"
-echo "# ==> Complete"
-
-echo "# ==> Deploy k3s on the worker2 node - 3 min"
-multipass exec k3s-worker2 -- /bin/bash -c \
-  "curl -sfL https://get.k3s.io | K3S_TOKEN=${K3S_TOKEN} K3S_URL=${K3S_NODEIP_MASTER} sh -"
+done
 echo "# ==> Complete"
 
 sleep 5
@@ -42,7 +38,7 @@ echo "#==> CHECK EVERYTHING"
 echo
 
 multipass list
-multipass exec k3s-master kubectl get nodes
+multipass exec k3s-master -- kubectl get nodes
 
 #-------------------------------------------------------------
 # Step 4. Configure kubectl
@@ -67,14 +63,21 @@ alias k="kubectl --kubeconfig=${HOME}/.kube/k3s.yaml"
 echo "#==> Configure the node roles:"
 
 #kubectl --kubeconfig=${HOME}/.kube/k3s.yaml label node k3s-master node-role.kubernetes.io/master=""
-kubectl --kubeconfig=${HOME}/.kube/k3s.yaml label node k3s-worker1 node-role.kubernetes.io/node=""
-kubectl --kubeconfig=${HOME}/.kube/k3s.yaml label node k3s-worker2 node-role.kubernetes.io/node=""
+for i in 1 2 3; do
+  kubectl label node k3s-worker${i} node-role.kubernetes.io/node=""
+done
 
 # Configure taint NoSchedule for the k3s-master node
-kubectl --kubeconfig=${HOME}/.kube/k3s.yaml taint node k3s-master node-role.kubernetes.io/master=effect:NoSchedule
+kubectl taint node k3s-master node-role.kubernetes.io/master=effect:NoSchedule
 
 echo
 echo "#==> Display nodes. Nodes should be labeled with correct roles: master and node"
 echo
 
 kubectl get nodes
+
+echo '
+Run these two commands:
+export KUBECONFIG=${HOME}/.kube/k3s.yaml
+alias k="kubectl --kubeconfig=${HOME}/.kube/k3s.yaml"
+'
