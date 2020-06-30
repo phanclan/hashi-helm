@@ -8,8 +8,10 @@ multipass launch --name k3s-worker2 --cpus 1 --mem 1G --disk 3G || true
 multipass launch --name k3s-worker3 --cpus 1 --mem 1280M --disk 3G || true
 
 echo "#==> Deploy k3s on the master node"
+set +e
 multipass exec k3s-master -- /bin/bash -c \
   "curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -" || true
+set -e
 echo "#==> Complete"
 
 sleep 5
