@@ -9,7 +9,7 @@ multipass launch --name k3s-worker3 --cpus 1 --mem 1280M --disk 3G || true
 
 echo "#==> Deploy k3s on the master node"
 multipass exec k3s-master -- /bin/bash -c \
-  "curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -"
+  "curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE="644" sh -" || true
 echo "#==> Complete"
 
 sleep 5
@@ -27,7 +27,7 @@ echo $K3S_TOKEN
 echo "#==> Deploy k3s on the worker nodes - 3 min"
 for i in 1 2 3; do
 multipass exec k3s-worker${i} -- /bin/bash -c \
-  "curl -sfL https://get.k3s.io | K3S_TOKEN=${K3S_TOKEN} K3S_URL=${K3S_NODEIP_MASTER} sh -"
+  "curl -sfL https://get.k3s.io | K3S_TOKEN=${K3S_TOKEN} K3S_URL=${K3S_NODEIP_MASTER} sh -" || true
 done
 echo "# ==> Complete"
 
